@@ -8,6 +8,20 @@ This repo contains:
 * Instructions on how to install Nx Cloud using Helm
 * Instructions on how to install Nx Cloud using kubectl. See [here](./no-helm/README.md).
 
+## An important note on updates!
+
+Please note, as of version `0.11.0` this helm chart is no longer compatible with legacy frontend containers by default. 
+
+**To avoid issues, please ensure the container version you are targeting is >=** `2308.22.7`.
+
+### Compatibility Matrix
+
+| Chart Version | Compatible Images                  |
+|---------------| ---------------------------------- |
+| <= `0.10.11`  | `2306.01.2.patch4` **and earlier** |
+| >= `0.11.0`   | `2308.22.7` **and later**          |
+| >= `0.12.0`   | `2312.11.7` **and later**          |
+
 ## Deployments on AWS/EKS
 
 If you're deploying on EKS, check out our [AWS Guide](./aws-guide/AWS-GUIDE.md). Otherwise, continue reading below.
@@ -47,7 +61,6 @@ If you only applied the secret from Step 3, the only thing you will need to chan
 The installation will create the following:
 
 1. nx-cloud-frontend (deployment)
-2. nx-cloud-api (deployment)
 3. nx-cloud-nx-api (deployment)
 4. nx-cloud-file-server (deployment)
 5. nx-cloud-aggregator (cron job)
@@ -128,35 +141,6 @@ spec:
                 name: nx-cloud-nx-api-service
                 port:
                   number: 4203
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: nx-cloud-nrwl-api-service
-                port:
-                  number: 4000
-          - path: /graphql
-            pathType: Prefix
-            backend:
-              service:
-                name: nx-cloud-nrwl-api-service
-                port:
-                  number: 4000
-          - path: /auth
-            pathType: Prefix
-            backend:
-              service:
-                name: nx-cloud-nrwl-api-service
-                port:
-                  number: 4000
-          - path: /download
-            pathType: Prefix
-            backend:
-              service:
-                name: nx-cloud-nrwl-api-service
-                port:
-                  number: 4000
-                             - path: /download
           - pathType: Prefix
             backend:
                service:

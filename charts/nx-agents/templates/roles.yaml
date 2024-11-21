@@ -1,0 +1,80 @@
+{{- if not .Values.roles.controller.existingRole }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nx-cloud-workflow-controller-role
+  namespace: {{ .Values.global.namespace }}
+rules:
+- apiGroups:
+    - ''
+  resources:
+    - services
+    - pods
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - apps
+  resources:
+    - deployments
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - ''
+  resources:
+    - secrets
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - batch
+  resources:
+    - jobs
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - batch
+  resources:
+    - jobs/status
+  verbs:
+    - get
+{{- end }}
+{{- if not .Values.roles.runner.existingRole }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nx-cloud-workflow-runner-role
+  namespace: {{ .Values.global.namespace }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+{{- end }}

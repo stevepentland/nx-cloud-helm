@@ -1,0 +1,9 @@
+Thank you for installing {{ .Chart.Name }}
+
+The version you installed is {{ .Chart.Version }}
+
+BREAKING CHANGE: As of Helm chart version 0.15.13 we have stopped using helm based VCS Integration configs. If you have defined
+any of the "github.pr" or "gitlab.mr" values in your config.yaml, please remove them and setup your VCS integration via your
+workspace "Settings" page.
+
+See https://nx.dev/ci/reference/release-notes for an expanded version of this note.

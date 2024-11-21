@@ -1,29 +1,54 @@
-{{- if .Values.nxCloudWorkflows.enabled }}
+{{- if and .Values.nxCloudWorkflows.enabled .Values.nxCloudWorkflows.externalName}}
+{{- if .Values.nxCloudWorkflows.headless }}
+# Headless service and endpoint slice
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: nx-cloud-workflow-controller-service
+  name: {{ .Values.nxCloudWorkflows.name }}
+  namespace: {{ .Values.global.namespace }}
   labels:
     app: nx-cloud-workflow-controller
     {{- include "nxCloud.app.labels" . | indent 4 }}
 spec:
-  type: ClusterIP
-  selector:
-    app: nx-cloud-workflow-controller
   ports:
-    - port: 9000
-      targetPort: 9000
-{{- else if .Values.nxCloudWorkflows.externalNameService }}
+  - port: {{ .Values.nxCloudWorkflows.port }}
+    protocol: TCP
+    targetPort: {{ .Values.nxCloudWorkflows.port }}
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: {{ printf "%s-1" .Values.nxCloudWorkflows.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    kubernetes.io/service-name: {{ .Values.nxCloudWorkflows.name }}
+    endpointslice.kubernetes.io/manage-by: helm
+    app: nx-cloud-workflow-controller
+    {{- include "nxCloud.app.labels" . | indent 4 }}
+addressType: IPv4
+ports:
+- name: ''
+  protocol: TCP
+  port: {{ .Values.nxCloudWorkflows.port }}
+endpoints:
+- addresses:
+  - {{ .Values.nxCloudWorkflows.externalName | quote }}
+  conditions: {}
+{{- else }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: nx-cloud-workflow-controller-service
+  name: {{ .Values.nxCloudWorkflows.name }}
+  namespace: {{ .Values.global.namespace }}
   labels:
     app: nx-cloud-workflow-controller
     {{- include "nxCloud.app.labels" . | indent 4 }}
 spec:
+  {{- if .Values.nxCloudWorkflows.externalName }}
   type: ExternalName
-  externalName: {{ .Values.nxCloudWorkflows.externalNameService }}
+  externalName: {{ .Values.nxCloudWorkflows.externalName }}
+  {{- end }}
+{{- end }}
 {{- end }}

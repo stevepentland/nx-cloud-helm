@@ -2,10 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nx-cloud-frontend
+  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "nxCloud.app.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicas.frontend }}
+  replicas: {{ .Values.frontend.deployment.replicas | default .Values.replicas.frontend }}
   selector:
     matchLabels:
       app: nx-cloud-frontend
@@ -22,6 +23,9 @@ spec:
       labels:
         app: nx-cloud-frontend
     spec:
+      {{- if .Values.frontend.serviceAccountName }}
+      serviceAccountName: {{ .Values.frontend.serviceAccountName }}
+      {{- end }}
       containers:
         - name: nx-cloud-frontend
           image: {{ include "nxCloud.images.frontend.image" . }}
@@ -30,7 +34,48 @@ spec:
           resources: {{- toYaml .Values.frontend.resources | nindent 12 }}
           {{- end }}
           ports:
-            - containerPort: 8080
+            - containerPort: {{ .Values.frontend.deployment.port }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.frontend.deployment.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: {{ .Values.frontend.deployment.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          {{- if .Values.frontend.securityContext }}
+          securityContext:
+          {{- toYaml .Values.frontend.securityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.selfSignedCertConfigMap }}
+          volumeMounts:
+            - mountPath: /self-signed-certs
+              name: self-signed-certs-volume
+          {{- end}}
           env:
         {{- include "nxCloud.env.verboseLogging" . | indent 12 }}
         {{- include "nxCloud.env.mode" . | indent 12 }}
+        {{- include "nxCloud.env.mongoSecrets" . | indent 12 }}
+        {{- include "nxCloud.frontend.scm.all" . | indent 12 }}
+        {{- include "nxCloud.env.nxCloudAppUrl" . | indent 12 }}
+        {{- include "nxCloud.frontend.auth" . | indent 12 }}
+        {{- include "nxCloud.workflows.serviceTarget" . | indent 12 }}
+        {{- include "nxCloud.frontend.nxApiTarget" . | indent 12 }}
+        {{- include "nxCloud.frontend.scm.githubAppEnv" . | indent 12 }}
+        {{- if .Values.frontend.deployment.env }}
+          {{- toYaml .Values.frontend.deployment.env | nindent 12 }}
+        {{- end }}
+        {{- if .Values.selfSignedCertConfigMap }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /self-signed-certs/self-signed-cert.crt
+        {{- end}}
+      {{- if .Values.selfSignedCertConfigMap }}
+      volumes:
+        - configMap:
+            name: {{ .Values.selfSignedCertConfigMap }}
+          name: self-signed-certs-volume
+      {{- end }}

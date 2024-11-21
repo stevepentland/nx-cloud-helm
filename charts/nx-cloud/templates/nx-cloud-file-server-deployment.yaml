@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nx-cloud-file-server
+  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "nxCloud.app.labels" . | indent 4 }}
 spec:
@@ -23,6 +24,9 @@ spec:
       labels:
         app: nx-cloud-file-server
     spec:
+      {{- if .Values.fileServer.serviceAccountName }}
+      serviceAccountName: {{ .Values.fileServer.serviceAccountName }}
+      {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -41,21 +45,28 @@ spec:
             {{- include "nxCloud.env.verboseLogging" . | indent 12 }}
             {{- if .Values.clearRecordsOlderThanDays }}
             - name: NX_CACHE_EXPIRATION_PERIOD_IN_DAYS
-              value: '{{ .Values.clearRecordsOlderThanDays }}'
+              value: '{{ add .Values.clearRecordsOlderThanDays 1 }}'
+            {{- end }}
+            {{- if .Values.fileServer.deployment.env }}
+            {{- toYaml .Values.fileServer.deployment.env | nindent 12 }}
             {{- end }}
           ports:
-            - containerPort: 5000
+            - containerPort: {{ .Values.fileServer.deployment.port }}
           livenessProbe:
             httpGet:
               path: /file/uptime-check
-              port: 5000
+              port: {{ .Values.fileServer.deployment.port }}
             initialDelaySeconds: 10
           startupProbe:
             httpGet:
               path: /file/uptime-check
-              port: 5000
+              port: {{ .Values.fileServer.deployment.port }}
             failureThreshold: 10
             periodSeconds: 5
+          {{- if .Values.fileServer.securityContext }}
+          securityContext:
+          {{- omit .Values.fileServer.securityContext "enabled" "fsGroup" "fsGroupChangePolicy" | toYaml | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - mountPath: /data
               name: data

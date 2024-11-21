@@ -1,0 +1,76 @@
+global:
+  namespace: 'nx-cloud-workflows'
+
+naming:
+  nameOverride: ''
+  fullNameOverride: ''
+
+serviceAccounts:
+  controller:
+    annotations: {}
+  runner:
+    annotations: {}
+
+controller:
+  deployment:
+    port: 9000
+    annotations: {}
+    env: {}
+  service:
+    port: 9000
+    type: ClusterIP
+    loadBalancerIP: ''
+    loadBalancerSourceRanges: []
+    annotations: {}
+  image:
+    registry: 'us-east1-docker.pkg.dev/nxcloudoperations'
+    imageName: nx-cloud-workflow-controller
+    repository: 'nx-cloud-enterprise-public'
+    tag: test.0219162846
+    pullPolicy: Always
+  resources:
+    limits:
+      memory: '1Gi'
+      cpu: '1.0'
+    requests:
+      memory: '0.5Gi'
+      cpu: '0.5'
+
+executor:
+  env: {}
+
+daemonset:
+  enabled: true
+  image:
+    registry: 'private.registry.example.com'
+    imageName: ubuntu
+    repository: ''
+    tag: 22.04
+  script: |
+    #!/bin/bash
+    set -e
+
+    # change the file-watcher max-count on each node to 1048576
+
+    # insert the new value into the system config
+    sysctl -w fs.inotify.max_user_watches=1048576
+
+    # check that the new value was applied
+    cat /proc/sys/fs/inotify/max_user_watches
+
+secret:
+  name: 'cloudsecret'
+  awsS3AccessKeyId: 'AWS_KEY'
+  awsS3SecretAccessKey: 'AWS_SECRET'
+
+extraManifests:
+  secret:
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: cloudsecret
+      namespace: nx-cloud-workflows
+    type: Opaque
+    stringData:
+      AWS_KEY: "MYAWSKEY"
+      AWS_SECRET: "SUPER_SECRET_AWS_SECRET"

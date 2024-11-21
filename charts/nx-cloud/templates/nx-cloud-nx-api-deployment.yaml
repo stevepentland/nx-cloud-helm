@@ -3,10 +3,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nx-cloud-nx-api
+  namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "nxCloud.app.labels" . | indent 4 }}
 spec:
-  replicas: {{ .Values.replicas.nxApi }}
+  replicas: {{ .Values.nxApi.deployment.replicas | default .Values.replicas.nxApi }}
   selector:
     matchLabels:
       app: nx-cloud-nx-api
@@ -23,9 +24,29 @@ spec:
         app: nx-cloud-nx-api
     spec:
       terminationGracePeriodSeconds: 60
-      {{- if .Values.awsS3.serviceAccountName }}
+      {{- if and .Values.nxApi.serviceAccountName .Values.awsS3.serviceAccountName }}
+      serviceAccountName: {{ .Values.nxApi.serviceAccountName }}
+      {{- else if .Values.nxApi.serviceAccountName }}
+      serviceAccountName: {{ .Values.nxApi.serviceAccountName }}
+      {{- else if .Values.awsS3.serviceAccountName }}
       serviceAccountName: {{ .Values.awsS3.serviceAccountName }}
       {{- end }}
+      {{- if .Values.selfSignedCertConfigMap }}
+      initContainers:
+        - command:
+            - sh
+            - -c
+            - cp -r /usr/lib/jvm/java-17-amazon-corretto/jre/lib/security /cacerts
+          image: {{ include "nxCloud.images.nxApi.image" . }}
+          name: copy-cacerts
+              {{- if .Values.nxApi.securityContext }}
+          securityContext:
+              {{- toYaml .Values.nxApi.securityContext | nindent 12 }}
+              {{- end }}
+          volumeMounts:
+            - mountPath: /cacerts
+              name: cacerts
+      {{- end}}
       containers:
         - name: nx-cloud-nx-api
           image: {{ include "nxCloud.images.nxApi.image" . }}
@@ -34,63 +55,55 @@ spec:
           resources: {{- toYaml .Values.nxApi.resources | nindent 12 }}
           {{- end }}
           ports:
-            - containerPort: 4203
+            - containerPort: {{ .Values.nxApi.deployment.port }}
+          {{- if .Values.nxApi.securityContext }}
+          securityContext:
+          {{- toYaml .Values.nxApi.securityContext | nindent 12 }}
+          {{- end }}
           {{- if .Values.selfSignedCertConfigMap }}
-          # if they have certificates and we need to wait on a post-start hook
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - sh
-                  - -c
-                  - ./srv/import-all-java-certs.sh /self-signed-certs/self-signed-cert.crt
           volumeMounts:
+            - mountPath: /usr/lib/jvm/java-17-amazon-corretto/jre/lib/security
+              name: cacerts
+              subPath: security
             - mountPath: /self-signed-certs
               name: self-signed-certs-volume
+          {{- end}}
           startupProbe:
             httpGet:
               path: /nx-cloud/uptime-check
-              port: 4203
-            initialDelaySeconds: 60
-            failureThreshold: 5
-            periodSeconds: 30
-          livenessProbe:
-            httpGet:
-              path: /nx-cloud/uptime-check
-              port: 4203
-            initialDelaySeconds: 120
-          {{- else}}
-          # if we don't need on a post-start hook
-          startupProbe:
-            httpGet:
-              path: /nx-cloud/uptime-check
-              port: 4203
+              port: {{ .Values.nxApi.deployment.port }}
             initialDelaySeconds: 10
             failureThreshold: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /nx-cloud/uptime-check
-              port: 4203
+              port: {{ .Values.nxApi.deployment.port }}
             initialDelaySeconds: 30
-          {{- end}}
+          {{- if .Values.nxApi.deployment.readinessProbe }}
+          readinessProbe: {{- toYaml .Values.nxApi.deployment.readinessProbe | nindent 12 }}
+          {{- end }}
           env:
           {{- include "nxCloud.env.nxCloudAppUrl" . | indent 12 }}
           {{- include "nxCloud.env.mode" . | indent 12 }}
-          {{- include "nxCloud.api.scm.githubAppEnv" . | indent 12 }}
-          {{- include "nxCloud.api.scm.all" . | indent 12 }}
+          {{- include "nxCloud.frontend.scm.githubAppEnv" . | indent 12 }}
+          {{- include "nxCloud.frontend.scm.all" . | indent 12 }}
           {{- include "nxCloud.env.verboseLogging" . | indent 12 }}
           {{- include "nxCloud.env.verboseMongoLogging" . | indent 12 }}
           {{- include "nxCloud.env.mongoSecrets" . | indent 12 }}
+          {{- include "nxCloud.workflows.serviceTarget" . | indent 12 }}
+          {{- if .Values.nxApi.deployment.env }}
+            {{- toYaml .Values.nxApi.deployment.env | nindent 12 }}
+          {{- end }}
           {{- if .Values.enableMessageQueue }}
             - name: ACTIVEMQ_ADDRESS
               value: tcp://nx-cloud-messagequeue:61616
           {{- end }}
-          {{- if or .Values.nxCloudWorkflows.enabled .Values.nxCloudWorkflows.externalNameService }}
-            - name: NX_CLOUD_CI_SERVER_ADDRESS
-              value: http://nx-cloud-workflow-controller-service:9000
-          {{- end }}
           {{- with .Values.awsS3 }}
+            {{- if .enablePathStyleAccess }}
+            - name: AWS_S3_ENABLE_PATH_STYLE_ACCESS
+              value: 'TRUE'
+            {{- end }}
             {{- if .accelerated }}
             - name: AWS_S3_ACCELERATED
               value: 'TRUE'
@@ -117,11 +130,6 @@ spec:
                 secretKeyRef:
                   name: {{ .name }}
                   key: {{ .awsS3SecretAccessKey }}
-              {{- else }}
-            - name: SECRET_FILE_AWS_S3_ACCESS_KEY_ID
-              value: {{ .awsS3AccessKeyId }}
-            - name: SECRET_FILE_AWS_S3_SECRET_ACCESS_KEY
-              value: {{ .awsS3SecretAccessKey }}
               {{- end }}
             {{- end }}
           {{- end }}
@@ -134,9 +142,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secret.name }}
                   key: {{ .Values.secret.azureConnectionString }}
-            {{- else }}
-            - name: SECRET_FILE_AZURE_CONNECTION_STRING
-              value: {{ .Values.secret.azureConnectionString }}
             {{- end }}
           {{- end }}
         {{- if .Values.fixedBatchSize }}
@@ -147,12 +152,10 @@ spec:
             - name: NX_CLOUD_USE_MONGO42
               value: 'false'
         {{- end }}
-        {{- if .Values.selfSignedCertConfigMap }}
-            - name: NX_CLOUD_NX_API_STARTUP_DELAY_SECONDS
-              value: '90'
-        {{- end }}
       {{- if .Values.selfSignedCertConfigMap }}
       volumes:
+        - emptyDir: { }
+          name: cacerts
         - configMap:
             name: {{ .Values.selfSignedCertConfigMap }}
           name: self-signed-certs-volume

@@ -71,9 +71,6 @@ Below are various little env snippets that multiple mainifests make use of
     secretKeyRef:
       name: {{ .Values.secret.name }}
       key: {{ .Values.secret.nxCloudMongoServerEndpoint }}
-{{- else }}
-- name: SECRET_FILE_NX_CLOUD_MONGO_SERVER_ENDPOINT
-  value: {{ .Values.secret.nxCloudMongoServerEndpoint }}
 {{- end }}
 {{- end }}
 
@@ -96,4 +93,27 @@ Below are various little env snippets that multiple mainifests make use of
 - name: NX_MONGO_LOG_LEVEL
   value: 'DEBUG'
 {{- end }}
+{{- end }}
+
+{{- define "nxCloud.workflows.serviceTarget" }}
+{{- if .Values.nxCloudWorkflows.enabled}}
+{{- if eq .Values.nxCloudWorkflows.externalName ""}}
+- name: NX_CLOUD_WORKFLOW_CONTROLLER_ADDRESS
+  value: http://{{ .Values.nxCloudWorkflows.name }}.{{ .Values.nxCloudWorkflows.workflowsNamespace }}.svc.cluster.local:{{ .Values.nxCloudWorkflows.port }}
+- name: NX_CLOUD_CI_SERVER_ADDRESS
+  value: http://{{ .Values.nxCloudWorkflows.name }}.{{ .Values.nxCloudWorkflows.workflowsNamespace }}.svc.cluster.local:{{ .Values.nxCloudWorkflows.port }}
+{{- else }}
+- name: NX_CLOUD_WORKFLOW_CONTROLLER_ADDRESS
+  value: http://{{ .Values.nxCloudWorkflows.name }}:{{ .Values.nxCloudWorkflows.port }}
+- name: NX_CLOUD_CI_SERVER_ADDRESS
+  value: http://{{ .Values.nxCloudWorkflows.name }}:{{ .Values.nxCloudWorkflows.port }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- define "nxCloud.frontend.nxApiTarget" }}
+- name: NX_API_INTERNAL_PORT
+  value: '4203'
+- name: NX_API_INTERNAL_BASE_URL
+  value: http://nx-cloud-nx-api-service
 {{- end }}

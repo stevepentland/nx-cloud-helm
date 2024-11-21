@@ -3,18 +3,13 @@ global:
 
 nxCloudAppURL: 'URL_TO_ACCESS_INGRESS_FROM_DEV_MACHINES'
 
-gitlab:
-  mr:
-    enabled: true
-    apiUrl: 'https://api.example.com/'
-    projectId: 'my-project'
-
 secret:
   name: 'cloudsecret'
   nxCloudMongoServerEndpoint: 'NX_CLOUD_MONGO_SERVER_ENDPOINT'
   adminPassword: 'ADMIN_PASSWORD'
-  gitlabAccessToken: 'GITLAB_ACCESS_TOKEN'
 
+# When creating new values files for testing, bring over the lines below. The generated environment is quite resource
+# constrained and with the default settings from values.yaml some of the pods will fail to schedule.
 frontend:
   resources:
     requests:
@@ -38,6 +33,15 @@ aggregator:
     requests:
       memory: '0.5Mi'
       cpu: '0.1'
+
+nxCloudWorkflows:
+  enabled: true
+  port: 9000
+  name: 'nx-cloud-workflow-controller-service'
+  workflowsNamespace: 'nx-cloud-workflows'
+
+  externalName: '10.0.0.64'
+
 
 extraManifests:
   secret:

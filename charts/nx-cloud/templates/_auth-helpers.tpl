@@ -1,6 +1,4 @@
-{{- define "nxCloud.api.auth" }}
-# TODO update docs
-# TODO test by adding different env vars and see if they get added on the deployment
+{{- define "nxCloud.frontend.auth" }}
 {{- if .Values.github.auth.enabled }}
 - name: GITHUB_AUTH_CLIENT_ID
   valueFrom:
@@ -46,6 +44,10 @@
     secretKeyRef:
       name: {{ .Values.secret.name }}
       key: {{ .Values.secret.bitbucketAppSecret }}
+    {{ if .Values.bitbucket.apiUrl }}
+- name: BITBUCKET_API_URL
+  value: {{ .Values.bitbucket.apiUrl }}
+    {{- end }}
 {{- end }}
 
 {{- if .Values.saml.enabled }}

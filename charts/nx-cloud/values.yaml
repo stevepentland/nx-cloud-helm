@@ -3,8 +3,9 @@ image:
 
 global:
   imageRegistry: ''
-  imageTag: ''
+  imageTag: 'latest'
   imageRepository: 'nxprivatecloud'
+  namespace: default
 
 naming:
   nameOverride: ''
@@ -15,9 +16,10 @@ mode: private-enterprise
 nxCloudAppURL: ''
 verboseLogging: false
 verboseMongoLogging: false
-enableMessageQueue: false
+enableMessageQueue: true
 
 frontend:
+  serviceAccountName: ''
   image:
     registry: ''
     imageName: nx-cloud-frontend
@@ -25,27 +27,23 @@ frontend:
     tag: ''
     digest: ''
     pullPolicy: Always
+  deployment:
+    replicas: 1
+    port: 4202
+    env: []
+  service:
+    name: nx-cloud-frontend-service
+    type: ClusterIP
+    port: 8080
+    annotations: {}
   resources:
     limits: {}
     requests:
       memory: '0.5Gi'
       cpu: '0.5'
 
-api:
-  image:
-    registry: ''
-    imageName: nx-cloud-api
-    repository: ''
-    tag: ''
-    digest: ''
-    pullPolicy: Always
-  resources:
-    limits: {}
-    requests:
-      memory: '1Gi'
-      cpu: '0.5'
-
 nxApi:
+  serviceAccountName: ''
   image:
     registry: ''
     imageName: nx-cloud-nx-api
@@ -53,6 +51,16 @@ nxApi:
     tag: ''
     digest: ''
     pullPolicy: Always
+  deployment:
+    replicas: 1
+    port: 4203
+    env: []
+    readinessProbe: {}
+  service:
+    name: nx-cloud-nx-api-service
+    type: ClusterIP
+    port: 4203
+    annotations: {}
   resources:
     limits: {}
     requests:
@@ -60,6 +68,7 @@ nxApi:
       cpu: '1.0'
 
 fileServer:
+  serviceAccountName: ''
   image:
     registry: ''
     imageName: nx-cloud-file-server
@@ -67,6 +76,14 @@ fileServer:
     tag: ''
     digest: ''
     pullPolicy: Always
+  deployment:
+    port: 5000
+    env: []
+  service:
+    name: nx-cloud-file-server-service
+    type: ClusterIP
+    port: 5000
+    annotations: {}
   resources:
     limits: {}
     requests:
@@ -80,6 +97,8 @@ fileServer:
     fsGroupChangePolicy: "OnRootMismatch"
 
 aggregator:
+  serviceAccountName: ''
+  schedule: '*/10 * * * *'
   image:
     registry: ''
     imageName: nx-cloud-aggregator
@@ -87,6 +106,7 @@ aggregator:
     tag: ''
     digest: ''
     pullPolicy: Always
+  env: []
   resources:
     limits: {}
     requests:
@@ -94,51 +114,66 @@ aggregator:
       cpu: '0.5'
 
 messagequeue:
+  serviceAccountName: ''
   image:
     registry: ''
     imageName: nx-cloud-messagequeue
     repository: ''
-    tag: latest
+    tag: ''
     digest: ''
     pullPolicy: Always
+  deployment:
+    port: 61616
+    env: []
+    volumes: {}
+    volumeMounts: {}
+  service:
+    name: nx-cloud-messagequeue
+    type: ClusterIP
+    port: 61616
+    annotations: {}
   resources:
     limits: {}
     requests: {}
 
-nxCloudWorkflowController:
-  image:
-    registry: ''
-    imageName: nx-cloud-workflow-controller
-    repository: ''
-    tag: latest
-    digest: ''
-    pullPolicy: Always
-  resources:
-    limits:
-      cpu: 500m
-      memory: 128Mi
-    requests:
-      cpu: 10m
-      memory: 64Mi
-
 nxCloudWorkflows:
   enabled: false
-  namespace: nx-cloud-workflows
-  externalNameService: ''
+  port: 9000
+  name: 'nx-cloud-workflow-controller-service'
+  workflowsNamespace: 'nx-cloud-workflows'
 
+  # If externalName is left unset, the applications will look for ane existing service with the name defined
+  # by `nxCloudWorkflows.name` in the namespace `nxCloudWorkflows.workflowsNamespace`. Use this option if you are
+  # also running the nx-agents chart in the same cluster as this nx-cloud chart
+  #
+  # If externalName is set, an additional service will be created with the name `nxCloudWorkflows.name`
+  # in the global namespace of this chart, and applications will use that service to connect to the workflow controller.
+  # Use this option if your nx-agents are running in a different cluster than this nx-cloud chart
+  externalName: ''
+
+  # If you find that an externalName service is not working as expected, you can set this to true to create a headless service
+  # which will create an endpoint group as an alternative. Please continue to set `externalName` to the IP address
+  # you wish to direct traffic to as we will use it to populate the endpoint slice.
+  headless: false
+
+# Deprecated, use nxApi.deployment.replicas and frontend.deployment.replicas
 replicas:
   frontend: 1
-  api: 1
   nxApi: 1
 
 ingress:
   skip: false
+
+  # deprecated, use ingress.annotations
   globalStaticIpName: ''
   managedCertificates: ''
   albScheme: ''
   albListenPorts: ''
   albCertificateArn: ''
   class: ''
+
+  annotations:
+    nx.app/installed-by: 'helm'
 
 fileStorage:
   storageClassName: ''
@@ -150,6 +185,7 @@ awsS3:
   bucket: ''
   accelerated: false
   endpoint: ''
+  enablePathStyleAccess: false
 
 azure:
   enabled: false
@@ -182,6 +218,11 @@ saml:
   auth:
     enabled: false
 
+# If you plan to deploy using your own self-signed certs, add them to a config map and provide the name here
+# We will mount the configmap to the pods and import the certs contained within at `self-signed-cert.crt`
+selfSignedCertConfigMap: ''
+vcsHttpsProxy: ''
+
 secret:
   name: ''
   nxCloudMongoServerEndpoint: ''
@@ -195,4 +236,8 @@ secret:
   githubAuthToken: ''
   githubAppId: ''
   githubPrivateKey: ''
+  githubAppClientId: ''
+  githubAppClientSecret: ''
   gitlabAccessToken: ''
+
+extraManifests: {}

@@ -1,0 +1,35 @@
+{{/*
+Return the proper image name
+Helper copied from bitnami/common: https://github.com/bitnami/charts/blob/main/bitnami/common/templates/_images.tpl
+with the entire global option removed
+*/}}
+{{- define "nxCloud.images.common" }}
+{{- $registryName := .imageRoot.registry }}
+{{- $repositoryName := .imageRoot.repository  }}
+{{- $imageName := .imageRoot.imageName }}
+{{- $separator := ":" }}
+{{- $termination := .imageRoot.tag | toString }}
+{{- if .imageRoot.digest }}
+    {{- $separator = "@" }}
+    {{- $termination = .imageRoot.digest | toString }}
+{{- end }}
+{{- if and $registryName $repositoryName }}
+    {{- printf "%s/%s/%s%s%s" $registryName $repositoryName $imageName $separator $termination }}
+{{- else if $repositoryName }}
+    {{- printf "%s/%s%s%s" $repositoryName $imageName $separator $termination }}
+{{- else }}
+    {{- printf "%s%s%s"  $imageName $separator $termination }}
+{{- end }}
+{{- end }}
+
+
+{{/*
+Return proper nx-cloud-workflow-controller image name
+*/}}
+{{- define "nxCloud.images.workflowController.image" }}
+{{- include "nxCloud.images.common" (dict "imageRoot" .Values.controller.image) }}
+{{- end }}
+
+{{- define "nxCloud.images.daemonset.image" }}
+{{- include "nxCloud.images.common" (dict "imageRoot" .Values.daemonset.image) }}
+{{- end }}
